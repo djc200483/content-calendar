@@ -1,0 +1,11 @@
+{
+  "name": "content-calendar-root",
+  "version": "1.0.0",
+  "description": "Root package for Content Calendar - API deployment",
+  "scripts": {
+    "start": "cd api && npm start"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+} 
