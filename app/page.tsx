@@ -29,10 +29,9 @@ interface ScheduledPost {
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://content-calendar-production-8f77.up.railway.app'
 
 // Generate calendar dates for current month
-const generateCalendarDates = () => {
-  const today = new Date()
-  const currentMonth = today.getMonth()
-  const currentYear = today.getFullYear()
+const generateCalendarDates = (monthDate: Date) => {
+  const currentMonth = monthDate.getMonth()
+  const currentYear = monthDate.getFullYear()
   
   const firstDay = new Date(currentYear, currentMonth, 1)
   const lastDay = new Date(currentYear, currentMonth + 1, 0)
@@ -76,15 +75,17 @@ export default function Home() {
   const [newInterest, setNewInterest] = useState('')
   const [scheduledPosts, setScheduledPosts] = useState<ScheduledPost[]>([])
   const [selectedSlot, setSelectedSlot] = useState<{
-    day: string
-    time: string
-    postToSchedule?: Post
-  } | null>(null)
+     day: string
+     time: string
+     postToSchedule?: Post
+   } | null>(null)
+  const [currentMonth, setCurrentMonth] = useState(new Date())
 
   // Load saved posts and preferences on component mount
   useEffect(() => {
     loadSavedPosts()
     loadPreferences()
+    loadScheduledPosts()
   }, [])
 
   const loadSavedPosts = async () => {
@@ -120,6 +121,18 @@ export default function Home() {
     }
   }
 
+  const loadScheduledPosts = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/scheduled-posts`)
+      if (response.ok) {
+        const data = await response.json()
+        setScheduledPosts(data.scheduledPosts || [])
+      }
+    } catch (error) {
+      console.error('Error loading scheduled posts:', error)
+    }
+  }
+
   const savePreferences = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/preferences`, {
@@ -140,7 +153,7 @@ export default function Home() {
 
   const addInterest = () => {
     if (newInterest.trim() && userPreferences.interests.length < 5) {
-      setUserPreferences(prev => ({
+      setUserPreferences((prev: UserPreferences) => ({
         ...prev,
         interests: [...prev.interests, newInterest.trim()]
       }))
@@ -149,9 +162,9 @@ export default function Home() {
   }
 
   const removeInterest = (index: number) => {
-    setUserPreferences(prev => ({
+    setUserPreferences((prev: UserPreferences) => ({
       ...prev,
-      interests: prev.interests.filter((_, i) => i !== index)
+      interests: prev.interests.filter((_: string, i: number) => i !== index)
     }))
   }
 
@@ -222,8 +235,8 @@ export default function Home() {
       })
 
       if (response.ok) {
-        setSavedPosts(prev => [...prev, post])
-        setGeneratedPosts(prev => prev.filter(p => p.id !== post.id))
+        setSavedPosts((prev: Post[]) => [...prev, post])
+        setGeneratedPosts((prev: Post[]) => prev.filter((p: Post) => p.id !== post.id))
       }
     } catch (error) {
       console.error('Error saving post:', error)
@@ -237,31 +250,59 @@ export default function Home() {
       })
 
       if (response.ok) {
-        setSavedPosts(prev => prev.filter(p => p.id !== postId))
+        setSavedPosts((prev: Post[]) => prev.filter((p: Post) => p.id !== postId))
       }
     } catch (error) {
       console.error('Error deleting post:', error)
     }
   }
 
-  const schedulePost = (post: Post, day: string, time: string) => {
-    const scheduledPost: ScheduledPost = {
-      ...post,
-      day,
-      time,
-      isScheduled: true,
-      createdAt: new Date().toISOString()
+  const schedulePost = async (post: Post, dateKey: string, time: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/schedule-post`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ post, date: dateKey, time }),
+      })
+
+              if (response.ok) {
+          const data = await response.json()
+          const scheduledPost: ScheduledPost = {
+            ...post,
+            day: dateKey,
+            time,
+            isScheduled: true,
+            createdAt: new Date().toISOString()
+          }
+          setScheduledPosts((prev: ScheduledPost[]) => [...prev, scheduledPost])
+          setSelectedSlot(null)
+        }
+    } catch (error) {
+      console.error('Error scheduling post:', error)
     }
-    setScheduledPosts(prev => [...prev, scheduledPost])
-    setSelectedSlot(null)
   }
 
-  const getScheduledPost = (day: string, time: string) => {
-    return scheduledPosts.find(post => post.day === day && post.time === time)
+  const getScheduledPost = (dateKey: string, time: string) => {
+    return scheduledPosts.find(post => post.day === dateKey && post.time === time)
   }
 
-  const removeScheduledPost = (day: string, time: string) => {
-    setScheduledPosts(prev => prev.filter(post => !(post.day === day && post.time === time)))
+  const removeScheduledPost = async (dateKey: string, time: string) => {
+    try {
+      const scheduledPost = getScheduledPost(dateKey, time)
+      if (scheduledPost) {
+        const response = await fetch(`${API_BASE_URL}/api/scheduled-posts/${scheduledPost.id}`, {
+          method: 'DELETE',
+        })
+
+        if (response.ok) {
+          setScheduledPosts((prev: ScheduledPost[]) => prev.filter((post: ScheduledPost) => !(post.day === dateKey && post.time === time)))
+        }
+      }
+    } catch (error) {
+      console.error('Error removing scheduled post:', error)
+    }
   }
 
   return (
@@ -523,27 +564,62 @@ export default function Home() {
         </>
       ) : (
         /* Calendar View */
-        <div className="card">
-          <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-            <Calendar className="w-5 h-5" />
-            Content Calendar
-          </h2>
+                 <div className="card">
+           <div className="flex justify-between items-center mb-6">
+             <h2 className="text-xl font-semibold flex items-center gap-2">
+               <Calendar className="w-5 h-5" />
+               Content Calendar
+             </h2>
+             <div className="flex items-center gap-4">
+               <div className="text-lg font-semibold">
+                 {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+               </div>
+               <div className="flex gap-2">
+                                   <button
+                    onClick={() => setCurrentMonth((prev: Date) => {
+                      const newMonth = new Date(prev)
+                      newMonth.setMonth(prev.getMonth() - 1)
+                      return newMonth
+                    })}
+                    className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors"
+                  >
+                    ←
+                  </button>
+                  <button
+                    onClick={() => setCurrentMonth((prev: Date) => {
+                      const newMonth = new Date(prev)
+                      newMonth.setMonth(prev.getMonth() + 1)
+                      return newMonth
+                    })}
+                    className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors"
+                  >
+                    →
+                  </button>
+                 <button
+                   onClick={() => setCurrentMonth(new Date())}
+                   className="px-3 py-1 bg-primary-600 text-white hover:bg-primary-700 rounded-lg transition-colors text-sm"
+                 >
+                   Today
+                 </button>
+               </div>
+             </div>
+           </div>
           
                      <div className="overflow-x-auto">
              <table className="w-full border-collapse">
                <thead>
                  <tr>
                    <th className="border border-gray-300 p-2 bg-gray-50 font-medium text-sm">Time</th>
-                   {generateCalendarDates().map((date, index) => (
-                     <th key={index} className="border border-gray-300 p-2 bg-gray-50 font-medium text-sm">
-                       <div className="text-xs text-gray-500">
-                         {date.toLocaleDateString('en-US', { weekday: 'short' })}
-                       </div>
-                       <div className="font-medium">
-                         {date.getDate()}
-                       </div>
-                     </th>
-                   ))}
+                                       {generateCalendarDates(currentMonth).map((date, index) => (
+                      <th key={index} className="border border-gray-300 p-2 bg-gray-50 font-medium text-sm">
+                        <div className="text-xs text-gray-500">
+                          {date.toLocaleDateString('en-US', { weekday: 'short' })}
+                        </div>
+                        <div className="font-medium">
+                          {date.getDate()}
+                        </div>
+                      </th>
+                    ))}
                  </tr>
                </thead>
               <tbody>
@@ -552,10 +628,10 @@ export default function Home() {
                      <td className="border border-gray-300 p-2 bg-gray-50 text-xs font-medium">
                        {time}
                      </td>
-                     {generateCalendarDates().map((date, index) => {
-                       const dateKey = date.toISOString().split('T')[0] // YYYY-MM-DD format
-                       const scheduledPost = getScheduledPost(dateKey, time)
-                       const isSelected = selectedSlot?.day === dateKey && selectedSlot?.time === time
+                                           {generateCalendarDates(currentMonth).map((date, index) => {
+                        const dateKey = date.toISOString().split('T')[0] // YYYY-MM-DD format
+                        const scheduledPost = getScheduledPost(dateKey, time)
+                        const isSelected = selectedSlot?.day === dateKey && selectedSlot?.time === time
                        
                        return (
                          <td 
@@ -601,15 +677,15 @@ export default function Home() {
                                 >
                                   Copy
                                 </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    removeScheduledPost(day, time)
-                                  }}
-                                  className="text-red-600 hover:text-red-700 text-xs"
-                                >
-                                  Remove
-                                </button>
+                                                                 <button
+                                   onClick={(e) => {
+                                     e.stopPropagation()
+                                     removeScheduledPost(dateKey, time)
+                                   }}
+                                   className="text-red-600 hover:text-red-700 text-xs"
+                                 >
+                                   Remove
+                                 </button>
                               </div>
                             </div>
                           ) : (
@@ -658,25 +734,33 @@ export default function Home() {
                 
                 <h4 className="font-medium mb-3">Select Date & Time:</h4>
                 
-                {/* Day Selection */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Day of Week:</label>
-                  <div className="grid grid-cols-7 gap-2">
-                    {DAYS_OF_WEEK.map(day => (
-                      <button
-                        key={day}
-                        onClick={() => setSelectedSlot(prev => prev ? { ...prev, day } : null)}
-                        className={`p-2 text-sm rounded-lg border transition-colors ${
-                          selectedSlot?.day === day
-                            ? 'bg-primary-600 text-white border-primary-600'
-                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                        }`}
-                      >
-                        {day.slice(0, 3)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                                 {/* Date Selection */}
+                 <div className="mb-4">
+                   <label className="block text-sm font-medium text-gray-700 mb-2">Select Date:</label>
+                   <div className="grid grid-cols-7 gap-2 max-h-60 overflow-y-auto">
+                     {generateCalendarDates(currentMonth).map((date, index) => {
+                       const dateKey = date.toISOString().split('T')[0]
+                       const isScheduled = getScheduledPost(dateKey, selectedSlot.time) !== undefined
+                       return (
+                         <button
+                           key={index}
+                                                       onClick={() => setSelectedSlot((prev: any) => prev ? { ...prev, day: dateKey } : null)}
+                           disabled={isScheduled}
+                           className={`p-2 text-sm rounded-lg border transition-colors ${
+                             selectedSlot?.day === dateKey
+                               ? 'bg-primary-600 text-white border-primary-600'
+                               : isScheduled
+                               ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                               : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                           }`}
+                         >
+                           <div className="text-xs">{date.toLocaleDateString('en-US', { weekday: 'short' })}</div>
+                           <div className="font-medium">{date.getDate()}</div>
+                         </button>
+                       )
+                     })}
+                   </div>
+                 </div>
                 
                 {/* Time Selection */}
                 {selectedSlot?.day && (
