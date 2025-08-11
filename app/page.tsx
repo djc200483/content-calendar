@@ -79,6 +79,7 @@ export default function Home() {
      time: string
      postToSchedule?: Post
    } | null>(null)
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [currentMonth, setCurrentMonth] = useState(new Date())
 
   // Load saved posts and preferences on component mount
@@ -610,16 +611,29 @@ export default function Home() {
                <thead>
                  <tr>
                    <th className="border border-gray-300 p-2 bg-gray-50 font-medium text-sm">Time</th>
-                                       {generateCalendarDates(currentMonth).map((date, index) => (
-                      <th key={index} className="border border-gray-300 p-2 bg-gray-50 font-medium text-sm">
-                        <div className="text-xs text-gray-500">
-                          {date.toLocaleDateString('en-US', { weekday: 'short' })}
-                        </div>
-                        <div className="font-medium">
-                          {date.getDate()}
-                        </div>
-                      </th>
-                    ))}
+                                       {generateCalendarDates(currentMonth).map((date, index) => {
+                      const dateKey = date.toISOString().split('T')[0]
+                      const dayPosts = scheduledPosts.filter(post => post.day === dateKey)
+                      return (
+                        <th 
+                          key={index} 
+                          className="border border-gray-300 p-2 bg-gray-50 font-medium text-sm cursor-pointer hover:bg-gray-100 transition-colors"
+                          onClick={() => setSelectedDay(dateKey)}
+                        >
+                          <div className="text-xs text-gray-500">
+                            {date.toLocaleDateString('en-US', { weekday: 'short' })}
+                          </div>
+                          <div className="font-medium">
+                            {date.getDate()}
+                          </div>
+                          {dayPosts.length > 0 && (
+                            <div className="text-xs text-primary-600 mt-1">
+                              {dayPosts.length} post{dayPosts.length !== 1 ? 's' : ''}
+                            </div>
+                          )}
+                        </th>
+                      )
+                    })}
                  </tr>
                </thead>
               <tbody>
@@ -839,7 +853,90 @@ export default function Home() {
             )}
           </div>
         </div>
-      )}
-    </div>
-  )
-} 
+             )}
+
+       {/* Day Schedule Modal */}
+       {selectedDay && (
+         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+           <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+             <div className="flex justify-between items-center mb-4">
+               <h3 className="text-lg font-semibold">
+                 Schedule for {new Date(selectedDay).toLocaleDateString('en-US', { 
+                   weekday: 'long', 
+                   year: 'numeric', 
+                   month: 'long', 
+                   day: 'numeric' 
+                 })}
+               </h3>
+               <button
+                 onClick={() => setSelectedDay(null)}
+                 className="text-gray-500 hover:text-gray-700"
+               >
+                 <X className="w-5 h-5" />
+               </button>
+             </div>
+             
+             <div className="space-y-4">
+               {TIME_SLOTS.map(time => {
+                 const scheduledPost = getScheduledPost(selectedDay, time)
+                 return (
+                   <div key={time} className="border border-gray-200 rounded-lg p-4">
+                     <div className="flex justify-between items-center mb-2">
+                       <h4 className="font-medium text-gray-700">{time}</h4>
+                       {scheduledPost ? (
+                         <div className="flex gap-2">
+                           <button
+                             onClick={() => copyToClipboard(scheduledPost.content)}
+                             className="btn-secondary text-sm flex items-center gap-1"
+                           >
+                             <Copy className="w-4 h-4" />
+                             Copy
+                           </button>
+                           <button
+                             onClick={() => {
+                               removeScheduledPost(selectedDay, time)
+                               setSelectedDay(null)
+                             }}
+                             className="text-red-600 hover:text-red-700 text-sm flex items-center gap-1"
+                           >
+                             <Trash2 className="w-4 h-4" />
+                             Remove
+                           </button>
+                         </div>
+                       ) : (
+                         <button
+                           onClick={() => {
+                             setSelectedSlot({ day: selectedDay, time })
+                             setSelectedDay(null)
+                           }}
+                           className="btn-primary text-sm flex items-center gap-1"
+                         >
+                           <Plus className="w-4 h-4" />
+                           Add Post
+                         </button>
+                       )}
+                     </div>
+                     
+                     {scheduledPost ? (
+                       <div className="space-y-2">
+                         <div className="text-xs text-gray-500">{scheduledPost.topic}</div>
+                         <div className="text-gray-800">{scheduledPost.content}</div>
+                         <div className="text-xs text-gray-400">
+                           {scheduledPost.content.length}/280 characters
+                         </div>
+                       </div>
+                     ) : (
+                       <div className="text-gray-400 text-sm text-center py-4">
+                         No post scheduled for this time slot
+                       </div>
+                     )}
+                   </div>
+                 )
+               })}
+             </div>
+           </div>
+         </div>
+       )}
+     </div>
+   )
+ } 
