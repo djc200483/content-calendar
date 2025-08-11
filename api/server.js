@@ -22,6 +22,7 @@ app.use(express.json());
 // In-memory storage for MVP (replace with database in production)
 let savedPosts = [];
 let userPreferences = {};
+let scheduledPosts = []; // Store scheduled posts with dates
 
 // Helper function to generate posts using ChatGPT
 async function generatePostsWithChatGPT(interests) {
@@ -257,6 +258,65 @@ app.get('/api/preferences', (req, res) => {
   } catch (error) {
     console.error('Error getting preferences:', error);
     res.status(500).json({ error: 'Failed to get preferences' });
+  }
+});
+
+// Schedule a post
+app.post('/api/schedule-post', (req, res) => {
+  try {
+    const { post, date, time } = req.body;
+    
+    if (!post || !date || !time) {
+      return res.status(400).json({ error: 'Post, date, and time are required' });
+    }
+
+    const scheduledPost = {
+      id: post.id || uuidv4(),
+      content: post.content,
+      topic: post.topic,
+      date: date,
+      time: time,
+      scheduledAt: new Date().toISOString()
+    };
+
+    // Remove any existing post at this date/time
+    scheduledPosts = scheduledPosts.filter(p => !(p.date === date && p.time === time));
+    
+    scheduledPosts.push(scheduledPost);
+    
+    res.json({ message: 'Post scheduled successfully', scheduledPost });
+  } catch (error) {
+    console.error('Error scheduling post:', error);
+    res.status(500).json({ error: 'Failed to schedule post' });
+  }
+});
+
+// Get scheduled posts
+app.get('/api/scheduled-posts', (req, res) => {
+  try {
+    res.json({ scheduledPosts });
+  } catch (error) {
+    console.error('Error getting scheduled posts:', error);
+    res.status(500).json({ error: 'Failed to get scheduled posts' });
+  }
+});
+
+// Delete scheduled post
+app.delete('/api/scheduled-posts/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const initialLength = scheduledPosts.length;
+    scheduledPosts = scheduledPosts.filter(post => post.id !== id);
+    
+    if (scheduledPosts.length === initialLength) {
+      return res.status(404).json({ error: 'Scheduled post not found' });
+    }
+    
+    res.json({ message: 'Scheduled post deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting scheduled post:', error);
+    res.status(500).json({ error: 'Failed to delete scheduled post' });
   }
 });
 

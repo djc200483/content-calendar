@@ -28,7 +28,27 @@ interface ScheduledPost {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://content-calendar-production-8f77.up.railway.app'
 
-const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+// Generate calendar dates for current month
+const generateCalendarDates = () => {
+  const today = new Date()
+  const currentMonth = today.getMonth()
+  const currentYear = today.getFullYear()
+  
+  const firstDay = new Date(currentYear, currentMonth, 1)
+  const lastDay = new Date(currentYear, currentMonth + 1, 0)
+  
+  const dates = []
+  const startDate = new Date(firstDay)
+  startDate.setDate(startDate.getDate() - firstDay.getDay()) // Start from Sunday
+  
+  while (startDate <= lastDay || dates.length < 42) { // 6 weeks * 7 days
+    dates.push(new Date(startDate))
+    startDate.setDate(startDate.getDate() + 1)
+  }
+  
+  return dates
+}
+
 const TIME_SLOTS = [
   '7:00-9:00',
   '9:00-11:00', 
@@ -509,53 +529,59 @@ export default function Home() {
             Content Calendar
           </h2>
           
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr>
-                  <th className="border border-gray-300 p-2 bg-gray-50 font-medium text-sm">Time</th>
-                  {DAYS_OF_WEEK.map(day => (
-                    <th key={day} className="border border-gray-300 p-2 bg-gray-50 font-medium text-sm">
-                      {day}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
+                     <div className="overflow-x-auto">
+             <table className="w-full border-collapse">
+               <thead>
+                 <tr>
+                   <th className="border border-gray-300 p-2 bg-gray-50 font-medium text-sm">Time</th>
+                   {generateCalendarDates().map((date, index) => (
+                     <th key={index} className="border border-gray-300 p-2 bg-gray-50 font-medium text-sm">
+                       <div className="text-xs text-gray-500">
+                         {date.toLocaleDateString('en-US', { weekday: 'short' })}
+                       </div>
+                       <div className="font-medium">
+                         {date.getDate()}
+                       </div>
+                     </th>
+                   ))}
+                 </tr>
+               </thead>
               <tbody>
-                {TIME_SLOTS.map(time => (
-                  <tr key={time}>
-                    <td className="border border-gray-300 p-2 bg-gray-50 text-xs font-medium">
-                      {time}
-                    </td>
-                    {DAYS_OF_WEEK.map(day => {
-                      const scheduledPost = getScheduledPost(day, time)
-                      const isSelected = selectedSlot?.day === day && selectedSlot?.time === time
-                      
-                      return (
-                        <td 
-                          key={`${day}-${time}`} 
-                          className={`border border-gray-300 p-2 min-h-[80px] cursor-pointer transition-colors ${
-                            isSelected ? 'bg-primary-100 border-primary-300' : 'hover:bg-gray-50'
-                          }`}
-                          onClick={() => {
-                            if (scheduledPost) {
-                              // If there's a scheduled post, show just that post
-                              setSelectedSlot({ 
-                                day, 
-                                time, 
-                                postToSchedule: {
-                                  id: scheduledPost.id,
-                                  content: scheduledPost.content,
-                                  topic: scheduledPost.topic,
-                                  createdAt: scheduledPost.createdAt || new Date().toISOString()
-                                }
-                              })
-                            } else {
-                              // If no scheduled post, show post selection
-                              setSelectedSlot({ day, time })
-                            }
-                          }}
-                        >
+                                 {TIME_SLOTS.map(time => (
+                   <tr key={time}>
+                     <td className="border border-gray-300 p-2 bg-gray-50 text-xs font-medium">
+                       {time}
+                     </td>
+                     {generateCalendarDates().map((date, index) => {
+                       const dateKey = date.toISOString().split('T')[0] // YYYY-MM-DD format
+                       const scheduledPost = getScheduledPost(dateKey, time)
+                       const isSelected = selectedSlot?.day === dateKey && selectedSlot?.time === time
+                       
+                       return (
+                         <td 
+                           key={`${dateKey}-${time}`} 
+                           className={`border border-gray-300 p-2 min-h-[80px] cursor-pointer transition-colors ${
+                             isSelected ? 'bg-primary-100 border-primary-300' : 'hover:bg-gray-50'
+                           }`}
+                           onClick={() => {
+                             if (scheduledPost) {
+                               // If there's a scheduled post, show just that post
+                               setSelectedSlot({ 
+                                 day: dateKey, 
+                                 time, 
+                                 postToSchedule: {
+                                   id: scheduledPost.id,
+                                   content: scheduledPost.content,
+                                   topic: scheduledPost.topic,
+                                   createdAt: scheduledPost.createdAt || new Date().toISOString()
+                                 }
+                               })
+                             } else {
+                               // If no scheduled post, show post selection
+                               setSelectedSlot({ day: dateKey, time })
+                             }
+                           }}
+                         >
                           {scheduledPost ? (
                             <div className="space-y-2">
                               <div className="text-xs text-gray-500">{scheduledPost.topic}</div>
