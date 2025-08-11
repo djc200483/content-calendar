@@ -260,6 +260,16 @@ app.get('/api/preferences', (req, res) => {
   }
 });
 
+// Root endpoint for testing
+app.get('/', (req, res) => {
+  res.status(200).json({ 
+    message: 'Content Calendar API is running',
+    timestamp: new Date().toISOString(),
+    port: PORT,
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
 // Health check endpoint for Railway
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
@@ -269,4 +279,12 @@ app.get('/health', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Content Calendar API running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/health`);
+  console.log('Environment variables loaded:', {
+    PORT: process.env.PORT,
+    NODE_ENV: process.env.NODE_ENV,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY ? 'SET' : 'NOT SET'
+  });
+}).on('error', (error) => {
+  console.error('Failed to start server:', error);
+  process.exit(1);
 }); 
