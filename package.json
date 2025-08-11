@@ -3,7 +3,17 @@
   "version": "1.0.0",
   "description": "Root package for Content Calendar - API deployment",
   "scripts": {
-    "start": "cd api && npm start"
+    "start": "cd api && npm start",
+    "build": "echo 'No build needed for API-only deployment'",
+    "postinstall": "cd api && npm install"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "openai": "^4.20.1",
+    "replicate": "^0.22.0",
+    "uuid": "^9.0.1"
   },
   "engines": {
     "node": ">=18.0.0"

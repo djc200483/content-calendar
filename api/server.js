@@ -262,11 +262,22 @@ app.get('/api/preferences', (req, res) => {
 
 // Root endpoint for testing
 app.get('/', (req, res) => {
+  console.log('Root endpoint hit');
   res.status(200).json({ 
     message: 'Content Calendar API is running',
     timestamp: new Date().toISOString(),
     port: PORT,
     environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Simple test endpoint
+app.get('/test', (req, res) => {
+  console.log('Test endpoint hit');
+  res.status(200).json({ 
+    status: 'ok',
+    message: 'Test endpoint working',
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -276,7 +287,15 @@ app.get('/health', (req, res) => {
 });
 
 // Start server
+console.log('=== SERVER STARTUP DEBUG ===');
+console.log('Current working directory:', process.cwd());
+console.log('Files in current directory:', require('fs').readdirSync('.'));
+console.log('PORT environment variable:', process.env.PORT);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('Attempting to start server on port:', PORT);
+
 app.listen(PORT, () => {
+  console.log('=== SERVER STARTED SUCCESSFULLY ===');
   console.log(`Content Calendar API running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/health`);
   console.log('Environment variables loaded:', {
@@ -285,6 +304,9 @@ app.listen(PORT, () => {
     OPENAI_API_KEY: process.env.OPENAI_API_KEY ? 'SET' : 'NOT SET'
   });
 }).on('error', (error) => {
-  console.error('Failed to start server:', error);
+  console.error('=== SERVER STARTUP FAILED ===');
+  console.error('Error details:', error);
+  console.error('Error code:', error.code);
+  console.error('Error message:', error.message);
   process.exit(1);
 }); 
