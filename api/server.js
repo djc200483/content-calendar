@@ -260,6 +260,11 @@ app.get('/api/preferences', (req, res) => {
   }
 });
 
+// Health check endpoint for Railway
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Content Calendar API running on port ${PORT}`);

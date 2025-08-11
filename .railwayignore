@@ -1,0 +1,15 @@
+# Ignore everything except the api folder for Railway deployment
+app/
+next-env.d.ts
+next.config.js
+package.json
+package-lock.json
+postcss.config.js
+README.md
+scripts/
+tailwind.config.js
+tsconfig.json
+vercel.json
+globals.css
+layout.tsx
+page.tsx 
