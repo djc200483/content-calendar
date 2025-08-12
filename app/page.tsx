@@ -273,25 +273,54 @@ export default function Home() {
       })
 
       if (response.ok) {
-        setSavedPosts((prev: Post[]) => [...prev, post])
+        const data = await response.json()
+        console.log('Post saved successfully:', data)
+        
+        // Use the returned post from the backend (which has the correct database ID)
+        const savedPost = data.post
+        setSavedPosts((prev: Post[]) => [...prev, savedPost])
         setGeneratedPosts((prev: Post[]) => prev.filter((p: Post) => p.id !== post.id))
+      } else {
+        const errorText = await response.text()
+        console.error('Failed to save post:', errorText)
+        alert(`Failed to save post: ${errorText}`)
       }
     } catch (error) {
       console.error('Error saving post:', error)
+      alert(`Error saving post: ${error}`)
     }
   }
 
   const deleteSavedPost = async (postId: string) => {
     try {
+      console.log('Attempting to delete post with ID:', postId)
+      
       const response = await fetch(`${API_BASE_URL}/api/saved-posts/${postId}`, {
         method: 'DELETE',
       })
 
+      console.log('Delete response status:', response.status)
+      
       if (response.ok) {
-        setSavedPosts((prev: Post[]) => prev.filter((p: Post) => p.id !== postId))
+        const data = await response.json()
+        console.log('Delete successful:', data)
+        
+        // Update the UI by removing the deleted post
+        setSavedPosts((prev: Post[]) => {
+          const updated = prev.filter((p: Post) => p.id !== postId)
+          console.log('Updated saved posts count:', updated.length)
+          return updated
+        })
+      } else {
+        const errorText = await response.text()
+        console.error('Delete failed with status:', response.status, 'Error:', errorText)
+        
+        // Show error to user
+        alert(`Failed to delete post: ${errorText}`)
       }
     } catch (error) {
       console.error('Error deleting post:', error)
+      alert(`Error deleting post: ${error}`)
     }
   }
 
