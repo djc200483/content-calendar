@@ -89,6 +89,30 @@ export default function Home() {
     loadScheduledPosts()
   }, [])
 
+  // Auto-scroll to today's date when calendar loads
+  useEffect(() => {
+    if (showCalendar) {
+      // Wait for the calendar to render, then scroll to today
+      const timer = setTimeout(() => {
+        const today = new Date()
+        const todayKey = today.toISOString().split('T')[0]
+        
+        // Find today's column in the calendar
+        const todayCells = document.querySelectorAll(`[data-date="${todayKey}"]`)
+        if (todayCells.length > 0) {
+          // Scroll the first today cell into view
+          todayCells[0].scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+            inline: 'center'
+          })
+        }
+      }, 100) // Small delay to ensure calendar is rendered
+      
+      return () => clearTimeout(timer)
+    }
+  }, [showCalendar, currentMonth])
+
   const loadSavedPosts = async () => {
     try {
       setIsLoading(true)
@@ -617,8 +641,13 @@ export default function Home() {
                       return (
                         <th 
                           key={index} 
-                          className="border border-gray-300 p-2 bg-gray-50 font-medium text-sm cursor-pointer hover:bg-gray-100 transition-colors"
+                          className={`border border-gray-300 p-2 font-medium text-sm cursor-pointer hover:bg-gray-100 transition-colors ${
+                            dateKey === new Date().toISOString().split('T')[0] 
+                              ? 'bg-blue-100 border-blue-300' 
+                              : 'bg-gray-50'
+                          }`}
                           onClick={() => setSelectedDay(dateKey)}
+                          data-date={dateKey}
                         >
                           <div className="text-xs text-gray-500">
                             {date.toLocaleDateString('en-US', { weekday: 'short' })}
@@ -648,12 +677,15 @@ export default function Home() {
                         const isSelected = selectedSlot?.day === dateKey && selectedSlot?.time === time
                        
                        return (
-                         <td 
-                           key={`${dateKey}-${time}`} 
-                           className={`border border-gray-300 p-2 min-h-[80px] cursor-pointer transition-colors ${
-                             isSelected ? 'bg-primary-100 border-primary-300' : 'hover:bg-gray-50'
-                           }`}
-                           onClick={() => {
+                                                   <td 
+                            key={`${dateKey}-${time}`} 
+                            className={`border border-gray-300 p-2 min-h-[80px] cursor-pointer transition-colors ${
+                              isSelected ? 'bg-primary-100 border-primary-300' : 
+                              dateKey === new Date().toISOString().split('T')[0] ? 'bg-blue-50' :
+                              'hover:bg-gray-50'
+                            }`}
+                            data-date={dateKey}
+                            onClick={() => {
                              if (scheduledPost) {
                                // If there's a scheduled post, show just that post
                                setSelectedSlot({ 
