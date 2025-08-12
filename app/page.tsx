@@ -311,6 +311,9 @@ export default function Home() {
           console.log('Updated saved posts count:', updated.length)
           return updated
         })
+        
+        // Also refresh scheduled posts since this post might have been scheduled
+        loadScheduledPosts()
       } else {
         const errorText = await response.text()
         console.error('Delete failed with status:', response.status, 'Error:', errorText)

@@ -361,7 +361,25 @@ app.delete('/api/saved-posts/:id', async (req, res) => {
     
     console.log('Found post to delete:', checkResult.rows[0])
 
-    // Delete post from database
+    // Check if this post is scheduled anywhere
+    const scheduledCheck = await query(
+      'SELECT id, scheduled_date, scheduled_time FROM scheduled_posts WHERE post_id = $1 AND user_id = $2',
+      [id, userId]
+    )
+    
+    if (scheduledCheck.rows.length > 0) {
+      console.log('Post is scheduled in', scheduledCheck.rows.length, 'time slots. Removing scheduled entries first...')
+      
+      // Delete all scheduled entries for this post
+      await query(
+        'DELETE FROM scheduled_posts WHERE post_id = $1 AND user_id = $2',
+        [id, userId]
+      )
+      
+      console.log('Removed scheduled entries for post')
+    }
+
+    // Now delete the post from database
     const result = await query(
       'DELETE FROM posts WHERE id = $1 AND user_id = $2 RETURNING *',
       [id, userId]
