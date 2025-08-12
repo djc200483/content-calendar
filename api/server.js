@@ -337,19 +337,37 @@ app.delete('/api/saved-posts/:id', async (req, res) => {
     }
 
     const { id } = req.params
+    console.log('Attempting to delete post with ID:', id)
     
     // Get default user ID
     const userResult = await query('SELECT id FROM users LIMIT 1')
     if (userResult.rows.length === 0) {
+      console.log('No user found in database')
       return res.status(500).json({ error: 'No user found' })
     }
     const userId = userResult.rows[0].id
+    console.log('Using user ID:', userId)
+
+    // First, check if the post exists
+    const checkResult = await query(
+      'SELECT id, content, topic FROM posts WHERE id = $1 AND user_id = $2',
+      [id, userId]
+    )
+    
+    if (checkResult.rows.length === 0) {
+      console.log('Post not found with ID:', id, 'for user:', userId)
+      return res.status(404).json({ error: 'Post not found' })
+    }
+    
+    console.log('Found post to delete:', checkResult.rows[0])
 
     // Delete post from database
     const result = await query(
       'DELETE FROM posts WHERE id = $1 AND user_id = $2 RETURNING *',
       [id, userId]
     )
+
+    console.log('Delete query result:', result.rows)
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Post not found' })

@@ -603,7 +603,11 @@ export default function Home() {
                           Copy
                         </button>
                         <button
-                          onClick={() => deleteSavedPost(post.id)}
+                          onClick={() => {
+                            console.log('Delete button clicked for post:', post)
+                            console.log('Post ID to delete:', post.id)
+                            deleteSavedPost(post.id)
+                          }}
                           className="text-red-600 hover:text-red-700 text-sm flex items-center gap-1"
                         >
                           <Trash2 className="w-4 h-4" />
