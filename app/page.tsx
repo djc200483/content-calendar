@@ -28,6 +28,13 @@ interface ScheduledPost {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://content-calendar-production-8f77.up.railway.app'
 
+// Helper function to get date in YYYY-MM-DD format (local timezone)
+const getLocalDateString = (date: Date) => {
+  return date.getFullYear() + '-' + 
+         String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+         String(date.getDate()).padStart(2, '0')
+}
+
 // Generate calendar dates for current month
 const generateCalendarDates = (monthDate: Date) => {
   const currentMonth = monthDate.getMonth()
@@ -94,8 +101,11 @@ export default function Home() {
     if (showCalendar) {
       // Wait for the calendar to render, then scroll to today
       const timer = setTimeout(() => {
+        // Get today's date in local timezone (not UTC)
         const today = new Date()
-        const todayKey = today.toISOString().split('T')[0]
+        const todayKey = getLocalDateString(today)
+        
+        console.log('Today (local):', todayKey)
         
         // Find today's column in the calendar
         const todayCells = document.querySelectorAll(`[data-date="${todayKey}"]`)
@@ -106,6 +116,9 @@ export default function Home() {
             block: 'nearest',
             inline: 'center'
           })
+        } else {
+          console.log('Today cells not found for date:', todayKey)
+          console.log('Available dates:', Array.from(document.querySelectorAll('[data-date]')).map(el => el.getAttribute('data-date')))
         }
       }, 100) // Small delay to ensure calendar is rendered
       
@@ -636,13 +649,13 @@ export default function Home() {
                  <tr>
                    <th className="border border-gray-300 p-2 bg-gray-50 font-medium text-sm">Time</th>
                                        {generateCalendarDates(currentMonth).map((date, index) => {
-                      const dateKey = date.toISOString().split('T')[0]
+                      const dateKey = getLocalDateString(date)
                       const dayPosts = scheduledPosts.filter(post => post.day === dateKey)
                       return (
                         <th 
                           key={index} 
                           className={`border border-gray-300 p-2 font-medium text-sm cursor-pointer hover:bg-gray-100 transition-colors ${
-                            dateKey === new Date().toISOString().split('T')[0] 
+                            dateKey === getLocalDateString(new Date())
                               ? 'bg-blue-100 border-blue-300' 
                               : 'bg-gray-50'
                           }`}
@@ -672,7 +685,7 @@ export default function Home() {
                        {time}
                      </td>
                                            {generateCalendarDates(currentMonth).map((date, index) => {
-                        const dateKey = date.toISOString().split('T')[0] // YYYY-MM-DD format
+                        const dateKey = getLocalDateString(date) // YYYY-MM-DD format (local timezone)
                         const scheduledPost = getScheduledPost(dateKey, time)
                         const isSelected = selectedSlot?.day === dateKey && selectedSlot?.time === time
                        
@@ -681,7 +694,7 @@ export default function Home() {
                             key={`${dateKey}-${time}`} 
                             className={`border border-gray-300 p-2 min-h-[80px] cursor-pointer transition-colors ${
                               isSelected ? 'bg-primary-100 border-primary-300' : 
-                              dateKey === new Date().toISOString().split('T')[0] ? 'bg-blue-50' :
+                              dateKey === getLocalDateString(new Date()) ? 'bg-blue-50' :
                               'hover:bg-gray-50'
                             }`}
                             data-date={dateKey}
@@ -785,7 +798,7 @@ export default function Home() {
                    <label className="block text-sm font-medium text-gray-700 mb-2">Select Date:</label>
                    <div className="grid grid-cols-7 gap-2 max-h-60 overflow-y-auto">
                      {generateCalendarDates(currentMonth).map((date, index) => {
-                       const dateKey = date.toISOString().split('T')[0]
+                       const dateKey = getLocalDateString(date)
                        const isScheduled = getScheduledPost(dateKey, selectedSlot.time) !== undefined
                        return (
                          <button
