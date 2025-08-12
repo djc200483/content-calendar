@@ -2,9 +2,16 @@ const express = require('express')
 const cors = require('cors')
 require('dotenv').config()
 const { initDatabase, query } = require('./db')
+const OpenAI = require('openai')
+const { v4: uuidv4 } = require('uuid')
 
 const app = express()
 const PORT = process.env.PORT || 8080
+
+// Initialize OpenAI
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+})
 
 // Middleware
 app.use(cors())
@@ -23,7 +30,8 @@ const startServer = async () => {
       DB_PORT: process.env.DB_PORT ? 'Set' : 'Not set',
       DB_NAME: process.env.DB_NAME ? 'Set' : 'Not set',
       DB_USER: process.env.DB_USER ? 'Set' : 'Not set',
-      DB_PASSWORD: process.env.DB_PASSWORD ? 'Set' : 'Not set'
+      DB_PASSWORD: process.env.DB_PASSWORD ? 'Set' : 'Not set',
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY ? 'Set' : 'Not set'
     })
 
     // Initialize database
@@ -37,10 +45,154 @@ const startServer = async () => {
       console.log(`✅ Content Calendar API server running on port ${PORT}`)
       console.log(`🌐 Server URL: http://localhost:${PORT}`)
       console.log(`📊 Database: Connected and ready`)
+      console.log(`🤖 OpenAI: ${process.env.OPENAI_API_KEY ? 'Configured' : 'Not configured'}`)
     })
   } catch (error) {
     console.error('❌ Failed to start server:', error)
     process.exit(1)
+  }
+}
+
+// Helper function to generate posts using ChatGPT
+async function generatePostsWithChatGPT(interests) {
+  try {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OpenAI API key not configured')
+    }
+
+    const isGoodMorning = interests.toLowerCase().includes('good morning') || 
+                         interests.toLowerCase().includes('greeting') || 
+                         interests.toLowerCase().includes('morning')
+    
+    const isPepTalk = interests.toLowerCase().includes('quick pep talk') || 
+                      interests.toLowerCase().includes('pep talk') || 
+                      interests.toLowerCase().includes('motivation')
+    
+    let prompt, systemMessage
+    
+    if (isGoodMorning) {
+      systemMessage = "You are writing natural, authentic morning posts. Think of what a real person would genuinely say in the morning - not forced social media content. Keep it simple, honest, and relatable. Avoid being overly enthusiastic or gimmicky."
+      prompt = `Create 5 natural, genuine morning posts about: ${interests}
+
+Requirements:
+- Natural, genuine tone - like a real person's morning thoughts
+- Simple and relatable
+- NOT gimmicky or forced
+- NOT overly enthusiastic or fake
+- Just honest morning vibes
+- Can be slightly humorous but not try-hard
+- Think of what you'd actually say to a friend in the morning
+- Keep each post under 280 characters
+- NO hashtags
+- NO questions or assumptions
+- Just state morning thoughts clearly and naturally`
+    } else if (isPepTalk) {
+      systemMessage = "You are a motivational speaker who creates short, powerful pep talks. Focus on delivering quick, impactful motivational messages that inspire action and confidence. Keep it authentic and relatable, not overly dramatic."
+      prompt = `Create 5 quick motivational pep talks about: ${interests}
+
+Requirements:
+- Short, powerful motivational messages
+- Inspire action and confidence
+- Authentic and relatable tone
+- NOT overly dramatic or cheesy
+- Focus on empowerment and encouragement
+- Keep each pep talk under 280 characters
+- NO hashtags
+- NO questions or assumptions
+- Just deliver clear, motivating messages`
+    } else {
+      systemMessage = "You are a professional content creator who writes factual, insightful posts for X (Twitter). Focus on pure facts, observations, and insights. Do not ask questions or make assumptions. Just state facts clearly and professionally."
+      prompt = `Create 5 professional, factual posts about: ${interests}
+
+Requirements:
+- Professional, factual tone
+- Pure facts and insights only
+- NO questions or assumptions
+- NO added context or commentary
+- Just state facts, observations, or insights
+- Keep each post under 280 characters
+- NO hashtags
+- Focus on valuable, informative content`
+    }
+
+    console.log('Generating posts with OpenAI...')
+    console.log('System message:', systemMessage)
+    console.log('Prompt:', prompt)
+
+    const completion = await openai.chat.completions.create({
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: systemMessage
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      max_tokens: 1000,
+      temperature: 0.7,
+    })
+
+    const response = completion.choices[0].message.content
+    console.log('OpenAI response received:', response)
+    
+    // Parse the response into individual posts
+    const posts = response
+      .split('\n')
+      .filter(line => line.trim().length > 0)
+      .map(line => line.trim())
+      .filter(content => content.length > 0 && content.length <= 280)
+      .slice(0, 5) // Ensure we only get 5 posts
+      .map((content, index) => ({
+        id: uuidv4(),
+        content: content,
+        topic: interests.split(',')[0]?.trim() || 'General',
+        createdAt: new Date().toISOString()
+      }))
+
+    console.log('Parsed posts:', posts)
+    return posts
+  } catch (error) {
+    console.error('Error generating posts with OpenAI:', error)
+    
+    // Fallback to mock data if OpenAI fails
+    console.log('Falling back to mock data...')
+    const mockPosts = [
+      {
+        id: uuidv4(),
+        content: `Just finished reading about ${interests.split(',')[0]?.trim()}. The insights are game-changing. What's your take on this?`,
+        topic: interests.split(',')[0]?.trim() || 'General',
+        createdAt: new Date().toISOString()
+      },
+      {
+        id: uuidv4(),
+        content: `Been thinking about ${interests.split(',')[0]?.trim()} lately. The more I learn, the more I realize how much there is to discover.`,
+        topic: interests.split(',')[0]?.trim() || 'General',
+        createdAt: new Date().toISOString()
+      },
+      {
+        id: uuidv4(),
+        content: `Quick thought: ${interests.split(',')[0]?.trim()} isn't just about the technical side. It's about the people and the problems we're solving.`,
+        topic: interests.split(',')[0]?.trim() || 'General',
+        createdAt: new Date().toISOString()
+      },
+      {
+        id: uuidv4(),
+        content: `Here's what I've learned about ${interests.split(',')[0]?.trim()}: sometimes the simplest solutions are the most effective.`,
+        topic: interests.split(',')[0]?.trim() || 'General',
+        createdAt: new Date().toISOString()
+      },
+      {
+        id: uuidv4(),
+        content: `Working on something exciting in ${interests.split(',')[0]?.trim()}. The possibilities are endless when you focus on solving real problems.`,
+        topic: interests.split(',')[0]?.trim() || 'General',
+        createdAt: new Date().toISOString()
+      }
+    ]
+
+    return mockPosts
   }
 }
 
@@ -50,6 +202,7 @@ app.get('/health', (req, res) => {
     res.status(200).json({ 
       status: 'healthy', 
       database: 'connected',
+      openai: process.env.OPENAI_API_KEY ? 'configured' : 'not configured',
       timestamp: new Date().toISOString()
     })
   } else {
@@ -66,7 +219,8 @@ app.get('/', (req, res) => {
   res.json({ 
     message: 'Content Calendar API', 
     status: 'running',
-    database: isDatabaseReady ? 'connected' : 'connecting'
+    database: isDatabaseReady ? 'connected' : 'connecting',
+    openai: process.env.OPENAI_API_KEY ? 'configured' : 'not configured'
   })
 })
 
@@ -75,7 +229,8 @@ app.get('/test', (req, res) => {
   res.json({ 
     message: 'API is working!', 
     timestamp: new Date().toISOString(),
-    database: isDatabaseReady ? 'connected' : 'connecting'
+    database: isDatabaseReady ? 'connected' : 'connecting',
+    openai: process.env.OPENAI_API_KEY ? 'configured' : 'not configured'
   })
 })
 
@@ -88,29 +243,12 @@ app.post('/api/generate-posts', async (req, res) => {
       return res.status(400).json({ error: 'Interests are required' })
     }
 
-    // For now, return mock posts (you can integrate with OpenAI later)
-    const mockPosts = [
-      {
-        id: `post_${Date.now()}_1`,
-        content: `Here's an interesting thought about ${interests}: The future of ${interests} is evolving rapidly, and staying ahead requires continuous learning and adaptation. What's your take on the latest developments?`,
-        topic: interests,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: `post_${Date.now()}_2`,
-        content: `Just finished reading an amazing article about ${interests}. The insights were eye-opening and made me rethink my approach. Sometimes the best ideas come from unexpected sources.`,
-        topic: interests,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: `post_${Date.now()}_3`,
-        content: `Working on a new project related to ${interests} today. The challenges are real, but so are the opportunities. Every obstacle is a chance to innovate and grow.`,
-        topic: interests,
-        createdAt: new Date().toISOString()
-      }
-    ]
-
-    res.json({ posts: mockPosts })
+    console.log('Generating posts for interests:', interests)
+    
+    // Use ChatGPT to generate posts
+    const posts = await generatePostsWithChatGPT(interests)
+    
+    res.json({ posts })
   } catch (error) {
     console.error('Error generating posts:', error)
     res.status(500).json({ error: 'Failed to generate posts' })
