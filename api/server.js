@@ -68,6 +68,16 @@ async function generatePostsWithChatGPT(interests) {
                       interests.toLowerCase().includes('pep talk') || 
                       interests.toLowerCase().includes('motivation')
     
+    const isMentalHealth = interests.toLowerCase().includes('mental health') || 
+                           interests.toLowerCase().includes('mental wellness') || 
+                           interests.toLowerCase().includes('wellness') ||
+                           interests.toLowerCase().includes('self care') ||
+                           interests.toLowerCase().includes('self-care') ||
+                           interests.toLowerCase().includes('anxiety') ||
+                           interests.toLowerCase().includes('stress') ||
+                           interests.toLowerCase().includes('depression') ||
+                           interests.toLowerCase().includes('mindfulness')
+    
     let prompt, systemMessage
     
     if (isGoodMorning) {
@@ -100,6 +110,22 @@ Requirements:
 - NO hashtags
 - NO questions or assumptions
 - Just deliver clear, motivating messages`
+    } else if (isMentalHealth) {
+      systemMessage = "You are a compassionate mental health advocate who creates supportive, evidence-based mental health tips. Focus on practical, actionable advice that promotes wellbeing. Be warm, non-judgmental, and encouraging while maintaining professional boundaries."
+      prompt = `Create 5 supportive mental health tips about: ${interests}
+
+Requirements:
+- Practical, actionable mental health tips
+- Evidence-based and supportive advice
+- Warm, non-judgmental tone
+- Focus on wellbeing and self-care
+- Encourage healthy coping strategies
+- Keep each tip under 280 characters
+- NO hashtags
+- NO questions or assumptions
+- NO medical advice or diagnosis
+- Just deliver clear, helpful mental health guidance
+- Format: One tip per line, no numbering`
     } else {
       systemMessage = "You are a professional content creator who writes factual, insightful posts for X (Twitter). Focus on pure facts, observations, and insights. Do not ask questions or make assumptions. Just state facts clearly and professionally."
       prompt = `Create 5 professional, factual posts about: ${interests}
